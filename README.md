@@ -28,6 +28,11 @@ Open:
 - Admin dashboard: http://127.0.0.1:8000
 - API docs: http://127.0.0.1:8000/docs
 
+Project docs:
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Demo evidence](docs/DEMO.md)
+
 The default `.env.example` uses fake mailbox and fake LLM providers so the app can run without API keys.
 
 ## Using MailSlurp and OpenAI

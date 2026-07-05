@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Ticket #{{ ticket.id }}</h1>
+    <p>{{ ticket.customer_email }} · {{ ticket.status }} · {{ ticket.domain }}</p>
+  </div>
+  <div class="actions">
+    <form method="post" action="/admin/tickets/{{ ticket.id }}/route/retry">
+      <button type="submit">Retry Route</button>
+    </form>
+    <form method="post" action="/admin/tickets/{{ ticket.id }}/reply/retry">
+      <button type="submit">Retry Reply</button>
+    </form>
+  </div>
+</section>
+
+<section class="grid">
+  <article class="panel">
+    <h2>Original Email</h2>
+    {% if ticket.latest_email %}
+    <dl>
+      <dt>From</dt>
+      <dd>{{ ticket.latest_email.from_address }}</dd>
+      <dt>To</dt>
+      <dd>{{ ticket.latest_email.to_addresses|join(", ") }}</dd>
+      <dt>Subject</dt>
+      <dd>{{ ticket.latest_email.subject }}</dd>
+    </dl>
+    <pre>{{ ticket.latest_email.text_body or ticket.latest_email.html_body }}</pre>
+    {% endif %}
+  </article>
+
+  <article class="panel">
+    <h2>Routing</h2>
+    <dl>
+      <dt>Domain</dt>
+      <dd>{{ ticket.domain }}</dd>
+      <dt>Priority</dt>
+      <dd>{{ ticket.priority }}</dd>
+      <dt>Routing confidence</dt>
+      <dd>{{ "%.0f"|format(ticket.routing_confidence * 100) }}%</dd>
+      <dt>Reply confidence</dt>
+      <dd>{{ "%.0f"|format(ticket.reply_confidence * 100) }}%</dd>
+    </dl>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Replies</h2>
+  {% for reply in ticket.replies %}
+  <div class="record">
+    <div class="record-meta">{{ reply.status }} · {{ "%.0f"|format(reply.confidence * 100) }}% · {{ reply.provider_message_id }}</div>
+    <pre>{{ reply.body }}</pre>
+    {% if reply.error %}<p class="error">{{ reply.error }}</p>{% endif %}
+  </div>
+  {% else %}
+  <p class="empty">No replies yet.</p>
+  {% endfor %}
+</section>
+
+<section class="panel">
+  <h2>Agent Runs</h2>
+  {% for run in ticket.agent_runs %}
+  <div class="record">
+    <div class="record-meta">{{ run.agent_name }} · {{ run.run_type }} · {{ run.status }} · {{ run.created_at }}</div>
+    <pre>{{ run.output }}</pre>
+    {% if run.error %}<p class="error">{{ run.error }}</p>{% endif %}
+  </div>
+  {% else %}
+  <p class="empty">No agent runs yet.</p>
+  {% endfor %}
+</section>
+{% endblock %}
+

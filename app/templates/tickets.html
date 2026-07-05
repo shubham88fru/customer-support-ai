@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Tickets</h1>
+    <p>{{ tickets|length }} total</p>
+  </div>
+</section>
+
+<section class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Status</th>
+        <th>Domain</th>
+        <th>Priority</th>
+        <th>Customer</th>
+        <th>Subject</th>
+        <th>Confidence</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ticket in tickets %}
+      <tr>
+        <td><a href="/admin/tickets/{{ ticket.id }}">#{{ ticket.id }}</a></td>
+        <td><span class="pill">{{ ticket.status }}</span></td>
+        <td>{{ ticket.domain }}</td>
+        <td>{{ ticket.priority }}</td>
+        <td>{{ ticket.customer_email }}</td>
+        <td>{{ ticket.subject }}</td>
+        <td>{{ "%.0f"|format(ticket.routing_confidence * 100) }}% / {{ "%.0f"|format(ticket.reply_confidence * 100) }}%</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="empty">No tickets yet. Poll the mailbox to ingest messages.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

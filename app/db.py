@@ -1,6 +1,6 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -25,6 +25,18 @@ def init_db() -> None:
     import app.models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _apply_lightweight_migrations()
+
+
+def _apply_lightweight_migrations() -> None:
+    if not settings.database_url.startswith("sqlite"):
+        return
+    with engine.begin() as connection:
+        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(replies)").fetchall()}
+        if "handled_by_agent" not in columns:
+            connection.execute(
+                text("ALTER TABLE replies ADD COLUMN handled_by_agent VARCHAR(100) NOT NULL DEFAULT ''")
+            )
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -33,4 +45,3 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
-

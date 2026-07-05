@@ -84,7 +84,13 @@ class IngestionService:
 
         decision = self._route(ticket, message)
         reply = self._draft(ticket, message, decision)
-        db_reply = Reply(ticket_id=ticket.id, email_message_id=email.id, body=reply.normalized_body, confidence=reply.confidence)
+        db_reply = Reply(
+            ticket_id=ticket.id,
+            email_message_id=email.id,
+            body=reply.normalized_body,
+            handled_by_agent=decision.domain,
+            confidence=reply.confidence,
+        )
         self.db.add(db_reply)
         self.db.flush()
 
@@ -180,7 +186,13 @@ class IngestionService:
         message = _message_from_email(ticket.latest_email)
         decision = RoutingDecision(domain=ticket.domain, priority=ticket.priority, confidence=ticket.routing_confidence)
         reply = self._draft(ticket, message, decision)
-        db_reply = Reply(ticket_id=ticket.id, email_message_id=ticket.latest_email.id, body=reply.normalized_body, confidence=reply.confidence)
+        db_reply = Reply(
+            ticket_id=ticket.id,
+            email_message_id=ticket.latest_email.id,
+            body=reply.normalized_body,
+            handled_by_agent=decision.domain,
+            confidence=reply.confidence,
+        )
         self.db.add(db_reply)
         self.db.flush()
         if reply.needs_review or reply.confidence < self.settings.auto_send_min_reply_confidence:

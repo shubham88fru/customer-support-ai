@@ -144,6 +144,7 @@ def _ticket_summary(ticket) -> dict[str, object]:
         "subject": ticket.subject,
         "status": ticket.status,
         "domain": ticket.domain,
+        "assigned_agent": ticket.assigned_agent,
         "priority": ticket.priority,
         "routing_confidence": ticket.routing_confidence,
         "reply_confidence": ticket.reply_confidence,
@@ -178,6 +179,7 @@ def _ticket_detail(ticket) -> dict[str, object]:
                 {
                     "id": reply.id,
                     "status": reply.status,
+                    "handled_by_agent": reply.handled_by_agent,
                     "confidence": reply.confidence,
                     "body": reply.body,
                     "error": reply.error,

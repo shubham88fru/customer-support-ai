@@ -72,6 +72,7 @@ class Reply(Base):
     ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id"), nullable=False, index=True)
     email_message_id: Mapped[int | None] = mapped_column(ForeignKey("email_messages.id"), nullable=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    handled_by_agent: Mapped[str] = mapped_column(String(100), default="", nullable=False)
     confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="draft", nullable=False, index=True)
     provider_message_id: Mapped[str] = mapped_column(String(255), default="", nullable=False)
@@ -81,4 +82,3 @@ class Reply(Base):
 
     ticket: Mapped[Ticket] = relationship(back_populates="replies")
     email_message: Mapped[EmailMessage | None] = relationship()
-

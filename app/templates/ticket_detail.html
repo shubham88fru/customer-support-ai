@@ -37,6 +37,8 @@
     <dl>
       <dt>Domain</dt>
       <dd>{{ ticket.domain }}</dd>
+      <dt>Assigned agent</dt>
+      <dd>{{ ticket.assigned_agent or "Unassigned" }}</dd>
       <dt>Priority</dt>
       <dd>{{ ticket.priority }}</dd>
       <dt>Routing confidence</dt>
@@ -51,7 +53,7 @@
   <h2>Replies</h2>
   {% for reply in ticket.replies %}
   <div class="record">
-    <div class="record-meta">{{ reply.status }} · {{ "%.0f"|format(reply.confidence * 100) }}% · {{ reply.provider_message_id }}</div>
+    <div class="record-meta">{{ reply.handled_by_agent or "unknown agent" }} · {{ reply.status }} · {{ "%.0f"|format(reply.confidence * 100) }}% · {{ reply.provider_message_id }}</div>
     <pre>{{ reply.body }}</pre>
     {% if reply.error %}<p class="error">{{ reply.error }}</p>{% endif %}
   </div>
@@ -73,4 +75,3 @@
   {% endfor %}
 </section>
 {% endblock %}
-

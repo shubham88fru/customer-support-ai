@@ -39,8 +39,10 @@ def test_poll_creates_ticket_and_sends_reply() -> None:
     assert ticket is not None
     assert ticket.status == "replied"
     assert ticket.domain == "payments_cancellations"
+    assert ticket.assigned_agent == "payments_cancellations"
     assert reply is not None
     assert reply.status == "sent"
+    assert reply.handled_by_agent == "payments_cancellations"
     assert len(emails) == 2
 
 
@@ -75,6 +77,7 @@ def test_poll_marks_reply_as_drafted_when_auto_send_disabled() -> None:
     assert ticket.status == "drafted"
     assert reply is not None
     assert reply.status == "drafted"
+    assert reply.handled_by_agent == "payments_cancellations"
 
 
 def test_poll_marks_reply_as_send_blocked_for_provider_block() -> None:
@@ -96,4 +99,5 @@ def test_poll_marks_reply_as_send_blocked_for_provider_block() -> None:
     assert ticket.status == "send_blocked"
     assert reply is not None
     assert reply.status == "send_blocked"
+    assert reply.handled_by_agent == "payments_cancellations"
     assert "External sending is disabled" in reply.error

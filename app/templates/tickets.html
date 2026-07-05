@@ -15,6 +15,7 @@
         <th>ID</th>
         <th>Status</th>
         <th>Domain</th>
+        <th>Agent</th>
         <th>Priority</th>
         <th>Customer</th>
         <th>Subject</th>
@@ -27,6 +28,7 @@
         <td><a href="/admin/tickets/{{ ticket.id }}">#{{ ticket.id }}</a></td>
         <td><span class="pill">{{ ticket.status }}</span></td>
         <td>{{ ticket.domain }}</td>
+        <td>{{ ticket.assigned_agent or "Unassigned" }}</td>
         <td>{{ ticket.priority }}</td>
         <td>{{ ticket.customer_email }}</td>
         <td>{{ ticket.subject }}</td>
@@ -34,11 +36,10 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="7" class="empty">No tickets yet. Poll the mailbox to ingest messages.</td>
+        <td colspan="8" class="empty">No tickets yet. Poll the mailbox to ingest messages.</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 {% endblock %}
-

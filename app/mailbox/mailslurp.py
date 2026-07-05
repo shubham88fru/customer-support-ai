@@ -3,7 +3,7 @@ from typing import Any
 
 import httpx
 
-from app.mailbox.base import MailboxProvider
+from app.mailbox.base import MailboxProvider, MailboxSendBlockedError, MailboxSendError
 from app.schemas import MailboxMessage, SentMessage
 
 
@@ -91,7 +91,20 @@ def _raise_for_status(response: httpx.Response, action: str) -> None:
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         body = response.text[:1000]
-        raise RuntimeError(
+        message = (
             f"MailSlurp {action} failed: status={response.status_code} "
             f"url={response.request.method} {response.request.url} body={body}"
-        ) from exc
+        )
+        if _is_send_blocked(response):
+            raise MailboxSendBlockedError(message) from exc
+        raise MailboxSendError(message) from exc
+
+
+def _is_send_blocked(response: httpx.Response) -> bool:
+    if response.status_code != 429:
+        return False
+    try:
+        payload = response.json()
+    except ValueError:
+        return False
+    return payload.get("errorCode") == "W_429_SEND_BLOCK_TRIAL" or payload.get("errorClass") == "Error429SendingBlocked"

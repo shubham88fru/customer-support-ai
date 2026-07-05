@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.agents.llm import LLMClient
 from app.agents.support import draft_reply, route_email
 from app.config import Settings
-from app.mailbox.base import MailboxProvider
+from app.mailbox.base import MailboxProvider, MailboxSendBlockedError
 from app.models import AgentRun, EmailMessage, Reply, Ticket, utcnow
 from app.schemas import MailboxMessage, ReplyDraft, RoutingDecision
 from app.services.ticketing import create_ticket_for_email, get_email_by_provider_id, mark_email_processed, store_inbound_email
@@ -23,6 +23,8 @@ class PollResult:
     skipped: int = 0
     sent: int = 0
     needs_review: int = 0
+    drafted: int = 0
+    send_blocked: int = 0
     failed: int = 0
 
 
@@ -59,6 +61,10 @@ class IngestionService:
                     result.sent += 1
                 elif outcome == "needs_review":
                     result.needs_review += 1
+                elif outcome == "drafted":
+                    result.drafted += 1
+                elif outcome == "send_blocked":
+                    result.send_blocked += 1
                 else:
                     result.failed += 1
                 self.mailbox.mark_processed(message_id)
@@ -89,11 +95,19 @@ class IngestionService:
         ticket.assigned_agent = decision.domain
 
         should_send = (
-            decision.confidence >= self.settings.auto_send_min_routing_confidence
+            self.settings.auto_send_enabled
+            and decision.confidence >= self.settings.auto_send_min_routing_confidence
             and reply.confidence >= self.settings.auto_send_min_reply_confidence
             and not reply.needs_review
             and bool(reply.normalized_body)
         )
+        if not self.settings.auto_send_enabled:
+            ticket.status = "drafted"
+            db_reply.status = "drafted"
+            mark_email_processed(email)
+            logger.info("reply drafted without sending ticket_id=%s auto_send_enabled=false", ticket.id)
+            return "drafted"
+
         if not should_send:
             ticket.status = "needs_review"
             db_reply.status = "needs_review"
@@ -131,6 +145,13 @@ class IngestionService:
             mark_email_processed(email)
             logger.info("reply sent ticket_id=%s provider_message_id=%s", ticket.id, sent.provider_message_id)
             return "sent"
+        except MailboxSendBlockedError as exc:
+            logger.warning("send blocked ticket_id=%s to=%s error=%s", ticket.id, message.from_address, exc)
+            db_reply.status = "send_blocked"
+            db_reply.error = str(exc)
+            ticket.status = "send_blocked"
+            mark_email_processed(email)
+            return "send_blocked"
         except Exception as exc:
             logger.exception("send failed ticket_id=%s to=%s", ticket.id, message.from_address)
             db_reply.status = "send_failed"
@@ -165,6 +186,9 @@ class IngestionService:
         if reply.needs_review or reply.confidence < self.settings.auto_send_min_reply_confidence:
             db_reply.status = "needs_review"
             ticket.status = "needs_review"
+        elif not self.settings.auto_send_enabled:
+            db_reply.status = "drafted"
+            ticket.status = "drafted"
         else:
             try:
                 sent = self.mailbox.send_reply(message, reply.normalized_body)
@@ -172,6 +196,11 @@ class IngestionService:
                 db_reply.provider_message_id = sent.provider_message_id
                 db_reply.sent_at = utcnow()
                 ticket.status = "replied"
+            except MailboxSendBlockedError as exc:
+                logger.warning("retry send blocked ticket_id=%s to=%s error=%s", ticket.id, message.from_address, exc)
+                db_reply.status = "send_blocked"
+                db_reply.error = str(exc)
+                ticket.status = "send_blocked"
             except Exception as exc:
                 logger.exception("retry send failed ticket_id=%s to=%s", ticket.id, message.from_address)
                 db_reply.status = "send_failed"

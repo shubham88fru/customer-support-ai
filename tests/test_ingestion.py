@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.agents.llm import FakeLLMClient
 from app.config import Settings
 from app.db import Base
+from app.mailbox.base import MailboxSendBlockedError
 from app.mailbox.fake import FakeMailboxProvider
 from app.models import EmailMessage, Reply, Ticket
 from app.services.ingestion import IngestionService
@@ -56,3 +57,42 @@ def test_poll_deduplicates_processed_messages() -> None:
     assert second.seen == 0
     assert len(list(db.scalars(select(Ticket)))) == 1
 
+
+def test_poll_marks_reply_as_drafted_when_auto_send_disabled() -> None:
+    db = make_db()
+    settings = Settings(auto_send_enabled=False)
+    service = IngestionService(db=db, mailbox=FakeMailboxProvider(), llm=FakeLLMClient(), settings=settings)
+
+    result = service.poll()
+
+    ticket = db.scalar(select(Ticket))
+    reply = db.scalar(select(Reply))
+
+    assert result.drafted == 1
+    assert result.sent == 0
+    assert ticket is not None
+    assert ticket.status == "drafted"
+    assert reply is not None
+    assert reply.status == "drafted"
+
+
+def test_poll_marks_reply_as_send_blocked_for_provider_block() -> None:
+    class BlockedMailbox(FakeMailboxProvider):
+        def send_reply(self, original, body):
+            raise MailboxSendBlockedError("External sending is disabled while your account has an active trial.")
+
+    db = make_db()
+    service = IngestionService(db=db, mailbox=BlockedMailbox(), llm=FakeLLMClient(), settings=Settings())
+
+    result = service.poll()
+
+    ticket = db.scalar(select(Ticket))
+    reply = db.scalar(select(Reply))
+
+    assert result.send_blocked == 1
+    assert result.failed == 0
+    assert ticket is not None
+    assert ticket.status == "send_blocked"
+    assert reply is not None
+    assert reply.status == "send_blocked"
+    assert "External sending is disabled" in reply.error

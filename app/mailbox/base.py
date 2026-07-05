@@ -3,6 +3,14 @@ from abc import ABC, abstractmethod
 from app.schemas import MailboxMessage, SentMessage
 
 
+class MailboxSendError(RuntimeError):
+    pass
+
+
+class MailboxSendBlockedError(MailboxSendError):
+    pass
+
+
 class MailboxProvider(ABC):
     name: str
 
@@ -21,4 +29,3 @@ class MailboxProvider(ABC):
     @abstractmethod
     def mark_processed(self, provider_message_id: str) -> None:
         raise NotImplementedError
-

@@ -1,5 +1,6 @@
 import httpx
 
+from app.mailbox.base import MailboxSendBlockedError
 from app.mailbox.mailslurp import MailSlurpMailboxProvider
 from app.schemas import MailboxMessage
 
@@ -54,3 +55,33 @@ def test_mailslurp_error_includes_response_body() -> None:
     else:
         raise AssertionError("Expected RuntimeError")
 
+
+def test_mailslurp_trial_send_block_raises_send_blocked_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            429,
+            json={
+                "message": "External sending is disabled while your account has an active trial.",
+                "errorClass": "Error429SendingBlocked",
+                "errorCode": "W_429_SEND_BLOCK_TRIAL",
+            },
+            request=request,
+        )
+
+    provider = MailSlurpMailboxProvider(api_key="test-key", inbox_id="inbox-123")
+    provider.client = httpx.Client(transport=httpx.MockTransport(handler), base_url=provider.base_url)
+
+    try:
+        provider.send_reply(
+            MailboxMessage(
+                provider="mailslurp",
+                provider_message_id="email-123",
+                from_address="customer@example.com",
+                subject="Help",
+            ),
+            "Thanks for writing in.",
+        )
+    except MailboxSendBlockedError as exc:
+        assert "W_429_SEND_BLOCK_TRIAL" in str(exc)
+    else:
+        raise AssertionError("Expected MailboxSendBlockedError")

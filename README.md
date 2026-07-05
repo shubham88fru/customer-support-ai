@@ -58,6 +58,14 @@ curl -X POST http://127.0.0.1:8000/ingest/poll
 
 ## Troubleshooting Send Failures
 
+MailSlurp trial accounts can receive external emails but may block external outbound sending. If that happens, the app marks the ticket/reply as `send_blocked` and stores the MailSlurp response body in `replies[].error`.
+
+To test real inbound email plus LLM routing/drafting without attempting outbound sends, set:
+
+```bash
+AUTO_SEND_ENABLED=false
+```
+
 If a ticket shows `send_failed`, open the ticket detail page or call:
 
 ```bash

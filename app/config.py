@@ -12,8 +12,9 @@ class Settings(BaseSettings):
     mailslurp_inbox_id: str = ""
     gmail_credentials_file: str = "credentials.json"
     gmail_token_file: str = "token.json"
-    gmail_query: str = "in:inbox is:unread -from:me"
-    gmail_max_results: int = Field(default=20, ge=1, le=100)
+    gmail_query: str = 'in:inbox is:unread -from:me subject:"[CUST_AGENT_SUPPORT]"'
+    gmail_max_results: int = Field(default=1, ge=1, le=100)
+    gmail_subject_prefix: str = "[CUST_AGENT_SUPPORT]"
     gmail_auth_browser: str = ""
 
     llm_provider: str = "fake"

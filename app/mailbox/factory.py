@@ -20,6 +20,7 @@ def build_mailbox_provider(settings: Settings) -> MailboxProvider:
             token_file=settings.gmail_token_file,
             query=settings.gmail_query,
             max_results=settings.gmail_max_results,
+            subject_prefix=settings.gmail_subject_prefix,
             auth_browser=settings.gmail_auth_browser,
         )
     raise ValueError(f"Unsupported MAILBOX_PROVIDER: {settings.mailbox_provider}")

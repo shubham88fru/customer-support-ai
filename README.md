@@ -58,8 +58,9 @@ Gmail is the best zero-cost path for a real end-to-end test. Put your Google OAu
 MAILBOX_PROVIDER=gmail
 GMAIL_CREDENTIALS_FILE=credentials.json
 GMAIL_TOKEN_FILE=token.json
-GMAIL_QUERY=in:inbox is:unread -from:me
-GMAIL_MAX_RESULTS=20
+GMAIL_QUERY=in:inbox is:unread -from:me subject:"[CUST_AGENT_SUPPORT]"
+GMAIL_MAX_RESULTS=1
+GMAIL_SUBJECT_PREFIX=[CUST_AGENT_SUPPORT]
 GMAIL_AUTH_BROWSER=chrome
 
 LLM_PROVIDER=openai
@@ -69,7 +70,7 @@ AUTO_SEND_ENABLED=true
 
 On the first poll, Google will open a browser consent flow. After you approve access, the app writes `token.json` locally and reuses it for later runs. Both `credentials.json` and `token.json` are ignored by Git.
 
-The Gmail provider reads unread inbox messages, creates tickets, sends replies through Gmail, and marks processed messages as read.
+The Gmail provider reads one unread inbox message whose subject starts with `[CUST_AGENT_SUPPORT]`, creates a ticket, sends a reply through Gmail, and marks the processed message as read.
 
 Trigger polling manually:
 

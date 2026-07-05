@@ -29,6 +29,7 @@ class GmailMailboxProvider(MailboxProvider):
         token_file: str,
         query: str,
         max_results: int = 20,
+        subject_prefix: str = "",
         auth_browser: str = "",
         service: Any | None = None,
     ) -> None:
@@ -36,6 +37,7 @@ class GmailMailboxProvider(MailboxProvider):
         self.token_file = Path(token_file)
         self.query = query
         self.max_results = max_results
+        self.subject_prefix = subject_prefix
         self.auth_browser = auth_browser
         self.service = service or build("gmail", "v1", credentials=self._load_credentials())
 
@@ -43,10 +45,17 @@ class GmailMailboxProvider(MailboxProvider):
         response = (
             self.service.users()
             .messages()
-            .list(userId="me", q=self.query, maxResults=self.max_results)
+            .list(userId="me", q=self.query, maxResults=max(self.max_results, 10))
             .execute()
         )
-        return [message["id"] for message in response.get("messages", [])]
+        message_ids: list[str] = []
+        for message in response.get("messages", []):
+            message_id = message["id"]
+            if self._message_subject_matches(message_id):
+                message_ids.append(message_id)
+            if len(message_ids) >= self.max_results:
+                break
+        return message_ids
 
     def get_message(self, provider_message_id: str) -> MailboxMessage:
         payload = (
@@ -93,6 +102,18 @@ class GmailMailboxProvider(MailboxProvider):
             .modify(userId="me", id=provider_message_id, body={"removeLabelIds": ["UNREAD"]})
             .execute()
         )
+
+    def _message_subject_matches(self, provider_message_id: str) -> bool:
+        if not self.subject_prefix:
+            return True
+        payload = (
+            self.service.users()
+            .messages()
+            .get(userId="me", id=provider_message_id, format="metadata", metadataHeaders=["Subject"])
+            .execute()
+        )
+        headers = _headers_by_name(payload.get("payload", {}).get("headers", []))
+        return headers.get("subject", "").startswith(self.subject_prefix)
 
     def _load_credentials(self) -> Credentials:
         credentials = None

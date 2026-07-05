@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     mailbox_provider: str = "fake"
     mailslurp_api_key: str = ""
     mailslurp_inbox_id: str = ""
+    gmail_credentials_file: str = "credentials.json"
+    gmail_token_file: str = "token.json"
+    gmail_query: str = "in:inbox is:unread -from:me"
+    gmail_max_results: int = Field(default=20, ge=1, le=100)
+    gmail_auth_browser: str = ""
 
     llm_provider: str = "fake"
     openai_api_key: str = ""

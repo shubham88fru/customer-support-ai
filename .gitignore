@@ -5,6 +5,10 @@ __pycache__/
 *.egg-info/
 
 .env
+credentials.json
+token.json
+google-credentials*.json
+gmail-token*.json
 customer_support_ai.db
 *.sqlite
 *.sqlite3

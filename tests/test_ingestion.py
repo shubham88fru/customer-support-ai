@@ -20,6 +20,7 @@ def make_db() -> Session:
 def test_poll_creates_ticket_and_sends_reply() -> None:
     db = make_db()
     settings = Settings(
+        auto_send_enabled=True,
         auto_send_min_routing_confidence=0.75,
         auto_send_min_reply_confidence=0.75,
     )
@@ -82,7 +83,7 @@ def test_poll_marks_reply_as_send_blocked_for_provider_block() -> None:
             raise MailboxSendBlockedError("External sending is disabled while your account has an active trial.")
 
     db = make_db()
-    service = IngestionService(db=db, mailbox=BlockedMailbox(), llm=FakeLLMClient(), settings=Settings())
+    service = IngestionService(db=db, mailbox=BlockedMailbox(), llm=FakeLLMClient(), settings=Settings(auto_send_enabled=True))
 
     result = service.poll()
 

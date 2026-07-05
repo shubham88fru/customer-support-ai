@@ -50,6 +50,27 @@ Then run:
 uvicorn app.main:app --reload
 ```
 
+## Using Gmail and OpenAI
+
+Gmail is the best zero-cost path for a real end-to-end test. Put your Google OAuth desktop-client file at `credentials.json`, then set:
+
+```bash
+MAILBOX_PROVIDER=gmail
+GMAIL_CREDENTIALS_FILE=credentials.json
+GMAIL_TOKEN_FILE=token.json
+GMAIL_QUERY=in:inbox is:unread -from:me
+GMAIL_MAX_RESULTS=20
+GMAIL_AUTH_BROWSER=chrome
+
+LLM_PROVIDER=openai
+OPENAI_API_KEY=...
+AUTO_SEND_ENABLED=true
+```
+
+On the first poll, Google will open a browser consent flow. After you approve access, the app writes `token.json` locally and reuses it for later runs. Both `credentials.json` and `token.json` are ignored by Git.
+
+The Gmail provider reads unread inbox messages, creates tickets, sends replies through Gmail, and marks processed messages as read.
+
 Trigger polling manually:
 
 ```bash

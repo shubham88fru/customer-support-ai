@@ -56,8 +56,8 @@ class MailSlurpMailboxProvider(MailboxProvider):
             "body": body,
             "isHTML": False,
         }
-        response = self.client.post(f"/inboxes/{self.inbox_id}/sendEmail", json=payload)
-        response.raise_for_status()
+        response = self.client.post(f"/inboxes/{self.inbox_id}/confirm", json=payload)
+        _raise_for_status(response, "send reply")
         sent = response.json()
         return SentMessage(provider_message_id=str(sent.get("id") or sent.get("messageId") or ""))
 
@@ -85,3 +85,13 @@ def _reply_subject(subject: str) -> str:
         return subject
     return f"Re: {subject}" if subject else "Re: Your support request"
 
+
+def _raise_for_status(response: httpx.Response, action: str) -> None:
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        body = response.text[:1000]
+        raise RuntimeError(
+            f"MailSlurp {action} failed: status={response.status_code} "
+            f"url={response.request.method} {response.request.url} body={body}"
+        ) from exc

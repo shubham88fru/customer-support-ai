@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
+    auto_send_enabled: bool = True
     auto_send_min_routing_confidence: float = Field(default=0.75, ge=0, le=1)
     auto_send_min_reply_confidence: float = Field(default=0.75, ge=0, le=1)
 
@@ -24,4 +25,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

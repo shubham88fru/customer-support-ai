@@ -56,6 +56,24 @@ Trigger polling manually:
 curl -X POST http://127.0.0.1:8000/ingest/poll
 ```
 
+## Troubleshooting Send Failures
+
+If a ticket shows `send_failed`, open the ticket detail page or call:
+
+```bash
+curl http://127.0.0.1:8000/tickets/{ticket_id}
+```
+
+The `replies[].error` field contains the MailSlurp status code, request URL, and response body.
+
+To retry sending a reply for an existing failed ticket:
+
+```bash
+curl -X POST http://127.0.0.1:8000/tickets/{ticket_id}/reply/retry
+```
+
+The app also logs poll, routing, drafting, and send failures to the Uvicorn console.
+
 ## Current Scope
 
 This is a v1 implementation:
@@ -66,4 +84,3 @@ This is a v1 implementation:
 - LLM router and specialist agents
 - Auto-send with confidence fallback to `needs_review`
 - Minimal admin UI
-

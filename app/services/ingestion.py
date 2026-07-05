@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,6 +11,9 @@ from app.mailbox.base import MailboxProvider
 from app.models import AgentRun, EmailMessage, Reply, Ticket, utcnow
 from app.schemas import MailboxMessage, ReplyDraft, RoutingDecision
 from app.services.ticketing import create_ticket_for_email, get_email_by_provider_id, mark_email_processed, store_inbound_email
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -31,14 +35,24 @@ class IngestionService:
 
     def poll(self) -> PollResult:
         result = PollResult()
-        for message_id in self.mailbox.list_new_messages():
+        message_ids = self.mailbox.list_new_messages()
+        logger.info("poll started provider=%s messages=%s", self.mailbox.name, len(message_ids))
+        for message_id in message_ids:
             result.seen += 1
             if get_email_by_provider_id(self.db, self.mailbox.name, message_id):
                 self.mailbox.mark_processed(message_id)
                 result.skipped += 1
+                logger.info("skipped already-processed email provider=%s message_id=%s", self.mailbox.name, message_id)
                 continue
             try:
                 message = self.mailbox.get_message(message_id)
+                logger.info(
+                    "processing inbound email provider=%s message_id=%s from=%s subject=%r",
+                    message.provider,
+                    message.provider_message_id,
+                    message.from_address,
+                    message.subject,
+                )
                 outcome = self.process_message(message)
                 result.created += 1
                 if outcome == "sent":
@@ -49,14 +63,18 @@ class IngestionService:
                     result.failed += 1
                 self.mailbox.mark_processed(message_id)
                 self.db.commit()
+                logger.info("processed inbound email provider=%s message_id=%s outcome=%s", self.mailbox.name, message_id, outcome)
             except Exception:
+                logger.exception("failed processing inbound email provider=%s message_id=%s", self.mailbox.name, message_id)
                 self.db.rollback()
                 result.failed += 1
+        logger.info("poll finished provider=%s result=%s", self.mailbox.name, result)
         return result
 
     def process_message(self, message: MailboxMessage) -> str:
         email = store_inbound_email(self.db, message)
         ticket = create_ticket_for_email(self.db, email)
+        logger.info("created ticket ticket_id=%s email_id=%s customer=%s", ticket.id, email.id, ticket.customer_email)
 
         decision = self._route(ticket, message)
         reply = self._draft(ticket, message, decision)
@@ -80,9 +98,17 @@ class IngestionService:
             ticket.status = "needs_review"
             db_reply.status = "needs_review"
             mark_email_processed(email)
+            logger.info(
+                "ticket needs review ticket_id=%s routing_confidence=%.2f reply_confidence=%.2f reply_needs_review=%s",
+                ticket.id,
+                decision.confidence,
+                reply.confidence,
+                reply.needs_review,
+            )
             return "needs_review"
 
         try:
+            logger.info("sending reply ticket_id=%s to=%s", ticket.id, message.from_address)
             sent = self.mailbox.send_reply(message, reply.normalized_body)
             outbound = EmailMessage(
                 provider=self.mailbox.name,
@@ -103,8 +129,10 @@ class IngestionService:
             db_reply.sent_at = utcnow()
             ticket.status = "replied"
             mark_email_processed(email)
+            logger.info("reply sent ticket_id=%s provider_message_id=%s", ticket.id, sent.provider_message_id)
             return "sent"
         except Exception as exc:
+            logger.exception("send failed ticket_id=%s to=%s", ticket.id, message.from_address)
             db_reply.status = "send_failed"
             db_reply.error = str(exc)
             ticket.status = "send_failed"
@@ -138,17 +166,30 @@ class IngestionService:
             db_reply.status = "needs_review"
             ticket.status = "needs_review"
         else:
-            sent = self.mailbox.send_reply(message, reply.normalized_body)
-            db_reply.status = "sent"
-            db_reply.provider_message_id = sent.provider_message_id
-            db_reply.sent_at = utcnow()
-            ticket.status = "replied"
+            try:
+                sent = self.mailbox.send_reply(message, reply.normalized_body)
+                db_reply.status = "sent"
+                db_reply.provider_message_id = sent.provider_message_id
+                db_reply.sent_at = utcnow()
+                ticket.status = "replied"
+            except Exception as exc:
+                logger.exception("retry send failed ticket_id=%s to=%s", ticket.id, message.from_address)
+                db_reply.status = "send_failed"
+                db_reply.error = str(exc)
+                ticket.status = "send_failed"
         self.db.commit()
         return db_reply
 
     def _route(self, ticket: Ticket, message: MailboxMessage) -> RoutingDecision:
         try:
             decision = route_email(self.llm, message)
+            logger.info(
+                "routing succeeded ticket_id=%s domain=%s priority=%s confidence=%.2f",
+                ticket.id,
+                decision.domain,
+                decision.priority,
+                decision.confidence,
+            )
             self.db.add(
                 AgentRun(
                     ticket_id=ticket.id,
@@ -161,6 +202,7 @@ class IngestionService:
             )
             return decision
         except Exception as exc:
+            logger.exception("routing failed ticket_id=%s", ticket.id)
             self.db.add(
                 AgentRun(
                     ticket_id=ticket.id,
@@ -177,6 +219,13 @@ class IngestionService:
     def _draft(self, ticket: Ticket, message: MailboxMessage, decision: RoutingDecision) -> ReplyDraft:
         try:
             reply = draft_reply(self.llm, message, decision)
+            logger.info(
+                "reply drafted ticket_id=%s agent=%s confidence=%.2f needs_review=%s",
+                ticket.id,
+                decision.domain,
+                reply.confidence,
+                reply.needs_review,
+            )
             self.db.add(
                 AgentRun(
                     ticket_id=ticket.id,
@@ -189,6 +238,7 @@ class IngestionService:
             )
             return reply
         except Exception as exc:
+            logger.exception("reply drafting failed ticket_id=%s agent=%s", ticket.id, decision.domain)
             self.db.add(
                 AgentRun(
                     ticket_id=ticket.id,
@@ -228,4 +278,3 @@ def _reply_subject(subject: str) -> str:
     if subject.lower().startswith("re:"):
         return subject
     return f"Re: {subject}" if subject else "Re: Your support request"
-

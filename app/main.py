@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +12,8 @@ from app.db import get_db, init_db
 from app.dependencies import get_app_settings, get_llm_client, get_mailbox_provider
 from app.mailbox.base import MailboxProvider
 from app.services.ingestion import IngestionService, get_ticket, list_tickets
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 app = FastAPI(title="Customer Support AI")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
